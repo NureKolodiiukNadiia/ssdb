@@ -1,8 +1,9 @@
-namespace Ssdb;
+using Ssdb.Entities;
 
-public record User
+namespace Ssdb.Dtos;
+
+public class CreateUserDto
 {
-    public int Id { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
     public string Email { get; set; }
@@ -10,10 +11,4 @@ public record User
     public string Password { get; set; }
     public Role Role { get; set; }
     public string Address { get; set; }
-}
-
-public enum Role
-{
-    Customer,
-    Admin,
 }

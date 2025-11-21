@@ -1,7 +1,8 @@
-namespace Ssdb.Controllers;
+namespace Ssdb.Entities;
 
-public class CreateOrderDto
+public record Order
 {
+    public int Id { get; set; }
     public OrderStatus Status { get; set; }
     public decimal Subtotal { get; set; }
     public string Description { get; set; }
@@ -11,4 +12,25 @@ public class CreateOrderDto
     public DateTime CollectedDate { get; set; }
     public DateTime DeliveredDate { get; set; }
     public int UserId { get; set; }
+}
+
+public enum PaymentStatus
+{
+    Unpaid,
+    Paid,
+}
+
+public enum PaymentMethod
+{
+    Cash,
+    CreditCard,
+}
+
+public enum OrderStatus
+{
+    Created,
+    Accepted,
+    Collected,
+    InProgress,
+    Delivered,
 }

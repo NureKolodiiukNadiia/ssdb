@@ -1,4 +1,4 @@
-namespace Ssdb.Controllers;
+namespace Ssdb.Dtos;
 
 public class UserWithMultipleOrders
 {

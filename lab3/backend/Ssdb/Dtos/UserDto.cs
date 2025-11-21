@@ -1,4 +1,4 @@
-namespace Ssdb;
+namespace Ssdb.Dtos;
 
 public class UserDto
 {

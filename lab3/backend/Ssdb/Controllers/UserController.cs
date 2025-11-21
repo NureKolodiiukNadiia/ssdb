@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Ssdb.Dtos;
+using Ssdb.Entities;
 
 namespace Ssdb.Controllers;
 

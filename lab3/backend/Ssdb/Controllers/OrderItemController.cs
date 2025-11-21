@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Ssdb.Dtos;
+using Ssdb.Entities;
 
 namespace Ssdb.Controllers;
 
@@ -6,20 +8,23 @@ namespace Ssdb.Controllers;
 [Route("api/[controller]")]
 public class OrderItemController : ControllerBase
 {
-    private DataProvider _dataProvider;
+    private readonly DataProvider _dataProvider;
 
     public OrderItemController(DataProvider dataProvider) => _dataProvider = dataProvider;
 
-    [HttpGet]
-    public async Task<ActionResult<List<OrderItem>>> GetOrderItems()
+    [HttpGet("order/{orderId:int}")]
+    public async Task<ActionResult<List<OrderItem>>> GetOrderItems(int orderId)
     {
-        var orderItems = await _dataProvider.GetAllOrderItemsAsync();
-        return Ok(orderItems.ToArray());
-        // return Ok(new OrderItem[1]
-        //     { new OrderItem() { Id = 1, OrderId = 2, ServiceName = "fewuhi", PricePerUnit = 34, Quantity = 2 } });
+        var orderItems = await _dataProvider.GetOrderItemsAsync(orderId);
+        if (orderItems == null || !orderItems.Any())
+        {
+            return NotFound($"No order items found for order ID {orderId}");
+        }
+
+        return Ok(orderItems);
     }
 
-    [HttpGet("{id}", Name = "GetOrderItem")]
+    [HttpGet("{id:int}")]
     public async Task<ActionResult<OrderItem>> GetOrderItem(int id)
     {
         var orderItem = await _dataProvider.GetOrderItemByIdAsync(id);
@@ -39,11 +44,10 @@ public class OrderItemController : ControllerBase
         {
             return BadRequest(new ProblemDetails { Title = "Invalid order item data" });
         }
-        var orderItem = new OrderItem()
+        var orderItem = new OrderItem
         {
             Quantity = orderItemDto.Quantity,
-            PricePerUnit = orderItemDto.PricePerUnit,
-            ServiceName = orderItemDto.ServiceName,
+            ProductId = orderItemDto.ProductId,
             OrderId = orderItemDto.OrderId,
         };
 
@@ -75,8 +79,7 @@ public class OrderItemController : ControllerBase
         }
 
         orderItem.Quantity = orderItemDto.Quantity;
-        orderItem.PricePerUnit = orderItemDto.PricePerUnit;
-        orderItem.ServiceName = orderItemDto.ServiceName;
+        orderItem.ProductId = orderItemDto.ProductId;
         orderItem.OrderId = orderItemDto.OrderId;
 
         try
@@ -98,17 +101,4 @@ public class OrderItemController : ControllerBase
         
         return Ok();
     }
-    
-    [HttpGet("order-items/{orderId}")]
-    public async Task<IActionResult> GetOrderItemsByOrderId(int orderId)
-    {
-        var orderItems = await _dataProvider.GetOrderItemsByOrderIdAsync(orderId);
-        if (orderItems == null || !orderItems.Any())
-        {
-            return NotFound($"No order items found for order ID {orderId}");
-        }
-
-        return Ok(orderItems);
-    }
- 
 }
