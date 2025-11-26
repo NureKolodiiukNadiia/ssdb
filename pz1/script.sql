@@ -4,10 +4,10 @@ GO
 USE SsdbDB;
 GO
 
-CREATE SCHEMA pz;
+CREATE SCHEMA pz1;
 GO
 
--- 1. Батьківська таблиця (users)
+-- 1. Батьківська таблиця
 CREATE TABLE pz.users (
     id INT IDENTITY(1,1) PRIMARY KEY,
     full_name NVARCHAR(100) NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE pz.users (
 );
 GO
 
--- 2. Залежна таблиця (orders)
+-- 2. Залежна таблиця
 CREATE TABLE pz.orders (
     id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE pz.orders (
 );
 GO
 
--- 3. Залежна таблиця (product)
+-- 3. Залежна таблиця
 CREATE TABLE pz.product (
     id INT IDENTITY(1,1) PRIMARY KEY,
     product_name NVARCHAR(100) NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE pz.product (
 );
 GO
 
--- 4. Незалежна таблиця (migration history)
+-- 4. Незалежна таблиця
 CREATE TABLE pz.migration_history (
     id INT IDENTITY(1,1) PRIMARY KEY,
     description NVARCHAR(200) NOT NULL
