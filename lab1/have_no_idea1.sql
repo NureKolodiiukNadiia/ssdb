@@ -1,164 +1,108 @@
--- CREATE DATABASE Pz2DB;
--- GO
---
--- USE Pz2DB;
--- GO
---
--- CREATE SCHEMA pz;
--- GO
---
--- CREATE TABLE pz.Goods
--- (
---     Id int NOT NULL,
---     Label nvarchar(100),
---     Manufacturer nvarchar(50),
---     Price float,
---     Quantity int,
---     InputDate datetime
--- );
---
--- GO
+-- 0) Розробіть функцію, яка за назвою регіону
+-- (вхідний параметр, частина інформації з поля Address)
+-- повертає сумарну кількість працівників з цього регіону;
 
--- ;WITH Tally AS (     SELECT TOP (50000) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n     FROM sys.all_objects a     CROSS JOIN sys.all_objects b ) INSERT INTO pz.Goods (Id, Label, Manufacturer, Price, Quantity, InputDate) SELECT     n AS Id,     LEFT(N'Product-' + REPLACE(CONVERT(nvarchar(36), NEWID()), N'-', N''), 100) AS Label,     CASE (ABS(CHECKSUM(NEWID())) % 10)         WHEN 0 THEN N'Acme' WHEN 1 THEN N'Contoso' WHEN 2 THEN N'Globex' WHEN 3 THEN N'Initech'         WHEN 4 THEN N'Umbrella' WHEN 5 THEN N'Soylent' WHEN 6 THEN N'Stark' WHEN 7 THEN N'Wayne'         WHEN 8 THEN N'Wonka' WHEN 9 THEN N'Hooli' END AS Manufacturer,     CAST((ABS(CHECKSUM(NEWID())) % 100000) / 100.0 AS decimal(10,2)) AS Price,     ABS(CHECKSUM(NEWID())) % 1000 AS Quantity,     DATEADD(day, - (ABS(CHECKSUM(NEWID())) % 3650), GETDATE()) AS InputDate FROM Tally;
--- USE Pz2DB;
--- GO
--- SELECT SUSER_NAME();
--- ALTER USER [sa] WITH DEFAULT_SCHEMA = pz;
+-- 9) Розробіть процедуру, що для товарів із заданого відділу, ціна яких
+-- належіть до 25% найдорожчих товарів, в полі Description записує «Дорогий товар»,
+-- а для товарів з ціною, яка знаходиться в діапазоні 25% найдешевших товарів – «Дешевий товар»
+-- (необхідно визначити мінімальну та максимальну ціну товарів,
+-- розбити цей діапазон на 3 частини – 25%, 50% 25% та для першої та останньої групи товарів
+-- в полі Description дописати відповідну інформацію);
 
--- SET STATISTICS IO ON;
--- Індекс 1: Оптимізація для Запиту 1 (Quantity < 100)
--- CREATE NONCLUSTERED INDEX IX_Goods_Quantity_Include
---     ON pz.Goods(Quantity)
---     INCLUDE (Id, Label);
--- Покриваючий індекс для швидкого відбору за Quantity
--- ALTER INDEX IX_Goods_Quantity_Include ON pz.Goods DISABLE;
 
--- Індекс 2: Оптимізація для Запиту 2 (Price AND InputDate)
--- CREATE NONCLUSTERED INDEX IX_Goods_InputDate_Price_Include
---     ON pz.Goods(InputDate, Price)
---     INCLUDE (Id, Label);
--- InputDate на першому місці, бо використовується рівність (=)
--- ALTER INDEX IX_Goods_InputDate_Price_Include ON pz.Goods DISABLE;
--- -- Індекс 3: Оптимізація для Запиту 3 (GROUP BY InputDate)
--- CREATE NONCLUSTERED INDEX IX_Goods_InputDate_Quantity
---     ON pz.Goods(InputDate)
---     INCLUDE (Quantity);
--- Покриваючий індекс для агрегації по InputDate
--- SELECT t.name AS TableName, ind.name AS IndexName, ind.type_desc
--- FROM sys.indexes ind
---          JOIN sys.tables t ON ind.object_id = t.object_id
--- ORDER BY t.name;
-
--- Кластеризований індекс (рекомендується на первинний ключ)
--- sql
--- 1) confirm current DB
--- SELECT DB_NAME() AS CurrentDatabase;
---
---
--- -- -- -- 2) list indexes and status for pz.Goods
--- SELECT name,
---        index_id,
---        type_desc,
---        is_disabled,
---        is_primary_key,
---        is_unique,
---        fill_factor
--- FROM sys.indexes
--- WHERE object_id = OBJECT_ID(N'pz.Goods');
---
--- -- 3) show any existing clustered index explicitly
--- SELECT name AS ClusteredIndexName
--- FROM sys.indexes
--- WHERE object_id = OBJECT_ID(N'pz.Goods')
---   AND type_desc = 'CLUSTERED';
---
--- -- 4) if your index exists but is disabled, rebuild (enables it)
--- IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'pz.Goods') AND name = N'IX_Goods_Id_Clustered' AND is_disabled = 1)
--- BEGIN
---     PRINT 'Rebuilding IX_Goods_Id_Clustered...';
---     ALTER INDEX IX_Goods_Id_Clustered ON pz.Goods REBUILD;
--- END
---
--- -- 5) create clustered index only if no clustered index exists
--- IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'pz.Goods') AND type_desc = 'CLUSTERED')
--- BEGIN
---     PRINT 'Creating clustered index IX_Goods_Id_Clustered...';
---     CREATE CLUSTERED INDEX IX_Goods_Id_Clustered ON pz.Goods(Id);
--- END
--- ELSE
--- BEGIN
---     PRINT 'A clustered index already exists; drop the PK/clustered index first if you want to replace it.';
--- END
-
--- ALTER INDEX IX_Goods_Id_Clustered ON pz.Goods REBUILD;
--- ALTER INDEX IX_Goods_InputDate_Quantity ON pz.Goods REBUILD;
--- ALTER INDEX IX_Goods_InputDate_Price_Include ON pz.Goods REBUILD;
--- ALTER INDEX IX_Goods_Quantity_Include ON pz.Goods REBUILD;
-
--- DROP INDEX IX_Goods_Id_Clustered ON pz.Goods;
--- ALTER INDEX IX_Goods_InputDate_Quantity ON pz.Goods DISABLE;
--- ALTER INDEX IX_Goods_InputDate_Price_Include ON pz.Goods DISABLE;
--- ALTER INDEX IX_Goods_Quantity_Include ON pz.Goods DISABLE;
--- ALTER INDEX IX_Goods_Id_Clustered ON pz.Goods DISABLE;
-
--- CREATE CLUSTERED INDEX IX_Goods_Id_Clustered
---     ON pz.Goods(Id);
-
--- SELECT Id, Label, Quantity FROM pz.Goods WHERE Quantity < 100;
--- SELECT Id, Label FROM pz.Goods WHERE Price > 100.0 AND InputDate = GETDATE();
--- SELECT InputDate, SUM(Quantity) as 'Count' FROM pz.Goods GROUP BY InputDate;
-
-CREATE OR ALTER FUNCTION pz.fn_DiscountProducts
+/* Function: count users by region substring
+   - If column `address` exists in lab.users it searches that column.
+   - Otherwise it searches email domain (part after '@') and phone for the substring.
+   - Returns INT count.
+*/
+CREATE OR ALTER FUNCTION lab.fn_CountUsersByRegion
 (
-    @discountPercent DECIMAL(5,2),
-    @minTotalSales DECIMAL(10,2)
+    @region NVARCHAR(100)
 )
-    RETURNS @Result TABLE
-                    (
-                        product_name NVARCHAR(100),
-                        old_price DECIMAL(10,2),
-                        new_price DECIMAL(10,2),
-                        total_sold_amount DECIMAL(10,2)
-                    )
+RETURNS INT
 AS
 BEGIN
-    -- Перевірка діапазону знижки
-    IF @discountPercent < 1 OR @discountPercent > 50
-        BEGIN
-            RAISERROR('Відсоток знижки має бути в діапазоні 1–50.', 16, 1);
-            RETURN;
-        END;
+    DECLARE @cnt INT = 0;
 
-    IF OBJECT_ID('pz.order_items') IS NULL
-        BEGIN
-            RAISERROR('Таблиця pz.order_items не існує. Неможливо обчислити суму продажів.', 16, 1);
-            RETURN;
-        END;
+    IF @region IS NULL OR LEN(LTRIM(RTRIM(@region))) = 0
+    BEGIN
+        RETURN 0;
+    END
 
-    -- Вставка потрібних рядків у вихідну таблицю
-    INSERT INTO @Result (product_name, old_price, new_price, total_sold_amount)
+        SELECT @cnt = COUNT(*)
+        FROM lab.users
+        WHERE address LIKE '%' + @region + '%';
+
+    RETURN ISNULL(@cnt, 0);
+END;
+GO
+
+/* Procedure: tag products in price brackets (25% cheapest / middle / 25% most expensive)
+   - Optional @namePattern filters products (use '%' or NULL for all).
+   - Ensures `description` column exists on lab.product.
+   - Splits price range into three parts by value (not by count).
+   - Writes 'Дешевий товар' for price <= lower threshold and 'Дорогий товар' for price >= upper threshold.
+   - Leaves middle group description NULL.
+   - Returns a summary SELECT with counts.
+*/
+CREATE OR ALTER PROCEDURE lab.sp_TagProductPriceBrackets
+(
+    @namePattern NVARCHAR(100) = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @minPrice DECIMAL(18,2), @maxPrice DECIMAL(18,2);
+    DECLARE @range DECIMAL(18,2), @tLow DECIMAL(18,2), @tHigh DECIMAL(18,2);
+
     SELECT
-        p.product_name,
-        p.price AS old_price,
-        CAST(p.price * (1 - @discountPercent / 100.0) AS DECIMAL(10,2)) AS new_price,
-        totals.total_sold_amount
-    FROM pz.product p
-             INNER JOIN (
-        SELECT
-            oi.product_id,
-            SUM(oi.quantity * oi.price) AS total_sold_amount
-        FROM pz.order_items oi
-                 INNER JOIN pz.orders o ON o.id = oi.order_id
-        GROUP BY oi.product_id
-        HAVING SUM(oi.quantity * oi.price) > @minTotalSales
-    ) AS totals ON totals.product_id = p.id;
+        @minPrice = MIN(price),
+        @maxPrice = MAX(price)
+    FROM lab.product
+    WHERE (@namePattern IS NULL OR product_name LIKE @namePattern);
 
-    -- Оновлення цін для тих самих продуктів
-    UPDATE p
-    SET p.price = CAST(p.price * (1 - @discountPercent / 100.0) AS DECIMAL(10,2))
-    FROM pz.product p
-             INNER JOIN @Result r ON r.product_name = p.product_name;
+    IF @minPrice IS NULL
+    BEGIN
+        -- no products matched
+        SELECT 0 AS cheap_count, 0 AS middle_count, 0 AS expensive_count;
+        RETURN;
+    END
 
-    RETURN;
+    SET @range = @maxPrice - @minPrice;
+    SET @tLow  = @minPrice + @range * 0.25; -- upper bound of cheapest 25% (by price range)
+    SET @tHigh = @minPrice + @range * 0.75; -- lower bound of most expensive 25%
+
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        -- Clear descriptions for the scope
+--         UPDATE lab.product
+--         SET description = NULL
+--         WHERE (@namePattern IS NULL OR product_name LIKE @namePattern);
+
+        UPDATE lab.product
+        SET description = N'Дешевий товар'
+        WHERE price <= @tLow
+          AND (@namePattern IS NULL OR product_name LIKE @namePattern);
+
+        UPDATE lab.product
+        SET description = N'Дорогий товар'
+        WHERE price >= @tHigh
+          AND (@namePattern IS NULL OR product_name LIKE @namePattern);
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+
+    -- Return summary counts
+    SELECT
+        SUM(CASE WHEN description = N'Дешевий товар' THEN 1 ELSE 0 END) AS cheap_count,
+        SUM(CASE WHEN description IS NULL THEN 1 ELSE 0 END) AS middle_count,
+        SUM(CASE WHEN description = N'Дорогий товар' THEN 1 ELSE 0 END) AS expensive_count
+    FROM lab.product
+    WHERE (@namePattern IS NULL OR product_name LIKE @namePattern);
 END;
 GO
