@@ -20,7 +20,7 @@ public class DataProvider
     public async Task<List<Order>> GetAllOrdersAsync()
     {
         var orders = new List<Order>();
-        string query = @"SELECT * FROM orders";
+        string query = "SELECT * FROM orders";
 
         try
         {
@@ -59,7 +59,7 @@ public class DataProvider
 
     public async Task<Order> GetOrderByIdAsync(int id)
     {
-        string query = @"SELECT * FROM orders WHERE order_id = @Id";
+        string query = "SELECT * FROM orders WHERE order_id = @Id";
 
         try
         {

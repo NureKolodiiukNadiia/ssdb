@@ -4,7 +4,7 @@ GO
 USE SsdbDB;
 GO
 
-CREATE SCHEMA pz1;
+CREATE SCHEMA pz;
 GO
 
 -- 1. Батьківська таблиця

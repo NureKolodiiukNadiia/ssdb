@@ -11,10 +11,4 @@
         <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Lab1\" />
-      <Folder Include="Pz3\" />
-      <Folder Include="Pz4\" />
-    </ItemGroup>
-
 </Project>
