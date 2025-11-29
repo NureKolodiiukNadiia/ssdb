@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Ssdb.Dtos;
-using Ssdb.Entities;
+using Ssdb.Model;
 
 namespace Ssdb.Controllers;
 
@@ -8,107 +7,78 @@ namespace Ssdb.Controllers;
 [Route("api/[controller]")]
 public class OrderController : ControllerBase
 {
-    private DataProvider _dataProvider;
+    private readonly DataProvider _dataProvider;
 
     public OrderController(DataProvider dataProvider) => _dataProvider = dataProvider;
 
     [HttpGet]
-    public async Task<ActionResult<List<Order>>> GetOrders()
-    {
-        var orders = await _dataProvider.GetAllOrdersAsync();
+    public async Task<ActionResult<List<Order>>> GetOrders([FromQuery] bool includeItems = false)
+        => Ok(await _dataProvider.GetAllOrdersAsync(includeItems));
 
-        return Ok(orders.ToArray());
-    }
-
-    [HttpGet("{id}", Name = "GetOrder")]
+    [HttpGet("{id:int}", Name = nameof(GetOrder))]
     public async Task<ActionResult<Order>> GetOrder(int id)
     {
-        var order = await _dataProvider.GetOrderByIdAsync(id);
+        var order = await _dataProvider.GetOrderAsync(id);
 
-        if (order == null)
-        {
-            return NotFound();
-        }
+        return order == null ? NotFound() : Ok(order);
+    }
 
-        return Ok(order);
+    [HttpGet("{id:int}/with-items")]
+    public async Task<ActionResult<Order>> GetOrderWithItems(int id)
+    {
+        var order = await _dataProvider.GetOrderWithItemsAsync(id);
+
+        return order == null ? NotFound() : Ok(order);
     }
 
     [HttpPost]
-    public async Task<ActionResult<Order>> CreateOrder([FromForm] CreateOrderDto orderDto)
+    public async Task<ActionResult<Order>> CreateOrder([FromBody] Order order)
     {
-        if (orderDto == null)
+        if (order == null)
         {
-            return BadRequest(new ProblemDetails { Title = "Invalid order data" });
+            return BadRequest();
         }
 
-        var order = new Order
-        {
-            Status = orderDto.Status,
-            Subtotal = orderDto.Subtotal,
-            Description = orderDto.Description,
-            PaymentMethod = orderDto.PaymentMethod,
-            PaymentStatus = orderDto.PaymentStatus,
-            DeliveryFee = orderDto.DeliveryFee,
-            CollectedDate = orderDto.CollectedDate,
-            DeliveredDate = orderDto.DeliveredDate,
-            UserId = orderDto.UserId,
-        };
+        var id = await _dataProvider.AddOrderAsync(order);
+        order.Id = id;
 
-        try
-        {
-            int id = await _dataProvider.AddOrderAsync(order);
-            order.Id = id;
-
-            return CreatedAtRoute("GetOrder", new { Id = order.Id }, order);
-        }
-        catch (Exception e)
-        {
-            return BadRequest(new ProblemDetails { Title = "Problem creating new order" });
-        }
+        return CreatedAtRoute(nameof(GetOrder), new { id }, order);
     }
 
-    [HttpPut]
-    public async Task<ActionResult<Order>> UpdateOrder([FromForm] Order orderDto)
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<Order>> UpdateOrder(int id, [FromBody] Order order)
     {
-        if (orderDto == null)
+        if (order == null || id != order.Id)
         {
-            return BadRequest(new ProblemDetails { Title = "Invalid order data" });
+            return BadRequest();
         }
 
-        var order = await _dataProvider.GetOrderByIdAsync(orderDto.Id);
-
-        if (order == null)
+        var existing = await _dataProvider.GetOrderAsync(id);
+        if (existing == null)
         {
             return NotFound();
         }
 
-        order.Status = orderDto.Status;
-        order.Subtotal = orderDto.Subtotal;
-        order.Description = orderDto.Description;
-        order.PaymentMethod = orderDto.PaymentMethod;
-        order.PaymentStatus = orderDto.PaymentStatus;
-        order.DeliveryFee = orderDto.DeliveryFee;
-        order.CollectedDate = orderDto.CollectedDate;
-        order.DeliveredDate = orderDto.DeliveredDate;
-        order.UserId = orderDto.UserId;
+        existing.UserId = order.UserId;
+        existing.PlacedAt = order.PlacedAt;
+        existing.Total = order.Total;
 
-        try
-        {
-            await _dataProvider.UpdateOrderAsync(order);
-        }
-        catch (Exception e)
-        {
-            return BadRequest(new ProblemDetails { Title = "Problem updating order" });
-        }
+        await _dataProvider.UpdateOrderAsync(existing);
 
-        return Ok(order);
+        return Ok(existing);
     }
 
-    [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteOrder(int id)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteOrder(int id)
     {
+        var existing = await _dataProvider.GetOrderAsync(id);
+        if (existing == null)
+        {
+            return NotFound();
+        }
+
         await _dataProvider.DeleteOrderAsync(id);
 
-        return Ok();
+        return NoContent();
     }
 }

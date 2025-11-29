@@ -1,8 +1,6 @@
-using System.Diagnostics;
-using Ssdb.Controllers;
+using System.Data;
 using System.Data.SqlClient;
-using Ssdb.Dtos;
-using Ssdb.Entities;
+using Ssdb.Model;
 
 namespace Ssdb;
 
@@ -12,494 +10,407 @@ public class DataProvider
 
     public DataProvider(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection");
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+                            ?? throw new InvalidOperationException("Missing connection string 'DefaultConnection'.");
     }
 
-    #region Order
-
-    public async Task<List<Order>> GetAllOrdersAsync()
-    {
-        var orders = new List<Order>();
-        string query = "SELECT * FROM orders";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-            {
-                var order = new Order
-                {
-                    Id = reader.GetInt32(0),
-                    Status = Enum.Parse<OrderStatus>(reader.GetString(1), true),
-                    Subtotal = reader.GetDecimal(2),
-                    Description = reader.GetString(3),
-                    PaymentMethod = Enum.Parse<PaymentMethod>(reader.GetString(4), true),
-                    PaymentStatus = Enum.Parse<PaymentStatus>(reader.GetString(5), true),
-                    DeliveryFee = reader.GetDecimal(6),
-                    CollectedDate = reader.GetDateTime(7),
-                    DeliveredDate = reader.GetDateTime(8),
-                    UserId = reader.GetInt32(9),
-                };
-                orders.Add(order);
-            }
-
-            return orders;
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return null;
-        }
-    }
-
-    public async Task<Order> GetOrderByIdAsync(int id)
-    {
-        string query = "SELECT * FROM orders WHERE order_id = @Id";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", id);
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            if (await reader.ReadAsync())
-            {
-                return new Order
-                {
-                    Id = reader.GetInt32(0),
-                    Status = Enum.Parse<OrderStatus>(reader.GetString(1), true),
-                    Subtotal = reader.GetDecimal(2),
-                    Description = reader.GetString(3),
-                    PaymentMethod = Enum.Parse<PaymentMethod>(reader.GetString(4), true),
-                    PaymentStatus = Enum.Parse<PaymentStatus>(reader.GetString(5), true),
-                    DeliveryFee = reader.GetDecimal(6),
-                    CollectedDate = reader.GetDateTime(7),
-                    DeliveredDate = reader.GetDateTime(8),
-                    UserId = reader.GetInt32(9),
-                };
-            }
-            else
-            {
-                return null;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return null;
-        }
-    }
-
-    public async Task<int> AddOrderAsync(Order order)
-    {
-        string query = @"INSERT INTO orders 
-                (status, subtotal, description, 
-                payment_method, payment_status, delivery_fee, 
-                collected_date, delivered_date, user_id) 
-            VALUES (@Status, @Subtotal, @Description, 
-                @PaymentMethod, @PaymentStatus, @DeliveryFee, @CollectedDate,
-                @DeliveredDate, @UserId);
-            SELECT LAST_INSERT_ID();";
-
-        try
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@Status", order.Status.ToString());
-                command.Parameters.AddWithValue("@Subtotal", order.Subtotal);
-                command.Parameters.AddWithValue("@Description", order.Description);
-                command.Parameters.AddWithValue("@PaymentMethod", order.PaymentMethod.ToString());
-                command.Parameters.AddWithValue("@PaymentStatus", order.PaymentStatus.ToString());
-                command.Parameters.AddWithValue("@DeliveryFee", order.DeliveryFee);
-                command.Parameters.AddWithValue("@CollectedDate", order.CollectedDate);
-                command.Parameters.AddWithValue("@DeliveredDate", order.DeliveredDate);
-                command.Parameters.AddWithValue("@UserId", order.UserId);
-
-                await connection.OpenAsync();
-                var id = Convert.ToInt32(await command.ExecuteScalarAsync());
-
-                return id;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return -1;
-        }
-    }
-
-    public async Task UpdateOrderAsync(Order order)
-    {
-        string query = @"UPDATE orders
-            SET status = @Status, subtotal = @Subtotal, 
-            description = @Description, payment_method = @PaymentMethod, 
-            payment_status = @PaymentStatus, delivery_fee = @DeliveryFee, 
-            collected_date = @CollectedDate, delivered_date = @DeliveredDate
-            WHERE order_id = @Id";
-
-        try
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@Status", order.Status.ToString());
-                command.Parameters.AddWithValue("@Subtotal", order.Subtotal);
-                command.Parameters.AddWithValue("@Description", order.Description);
-                command.Parameters.AddWithValue("@PaymentMethod", order.PaymentMethod.ToString());
-                command.Parameters.AddWithValue("@PaymentStatus", order.PaymentStatus.ToString());
-                command.Parameters.AddWithValue("@DeliveryFee", order.DeliveryFee);
-                command.Parameters.AddWithValue("@CollectedDate", order.CollectedDate);
-                command.Parameters.AddWithValue("@DeliveredDate", order.DeliveredDate);
-                command.Parameters.AddWithValue("@Id", order.Id);
-
-                await connection.OpenAsync();
-                await command.ExecuteNonQueryAsync();
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-        }
-    }
-
-    public async Task DeleteOrderAsync(int id)
-    {
-        string query = "DELETE FROM orders WHERE order_id = @Id";
-
-        try
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@Id", id);
-
-                await connection.OpenAsync();
-                await command.ExecuteNonQueryAsync();
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-        }
-    }
-
-    #endregion
-
-    #region OrderItem
-
-    public async Task<List<OrderItem>> GetOrderItemsAsync(int orderId)
-    {
-        var orderItems = new List<OrderItem>();
-        string query = @"SELECT * FROM order_item oi WHERE oi.order_id == @id";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-            {
-                var orderItem = new OrderItem
-                {
-                    Id = reader.GetInt32(0),
-                    Quantity = reader.GetInt32(1),
-                    OrderId = reader.GetInt32(4),
-                };
-                orderItems.Add(orderItem);
-            }
-
-            return orderItems;
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return null;
-        }
-    }
-
-    public async Task<OrderItem> GetOrderItemByIdAsync(int id)
-    {
-        string query = @"SELECT * FROM order_item WHERE order_item_id = @Id";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", id);
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            if (await reader.ReadAsync())
-            {
-                return new OrderItem
-                {
-                    Id = reader.GetInt32(0),
-                    Quantity = reader.GetInt32(1),
-                    OrderId = reader.GetInt32(4),
-                };
-            }
-            else
-            {
-                return null;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return null;
-        }
-    }
-
-    public async Task<int> AddOrderItemAsync(OrderItem orderItem)
-    {
-        string query = @"INSERT INTO order_item 
-                (quantity, price_per_unit, service_name, order_id) 
-            VALUES (@Quantity, @PricePerUnit, @ServiceName, @OrderId);
-            SELECT LAST_INSERT_ID();";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@Quantity", orderItem.Quantity);
-            command.Parameters.AddWithValue("@OrderId", orderItem.OrderId);
-
-            await connection.OpenAsync();
-            var id = Convert.ToInt32(await command.ExecuteScalarAsync());
-            return id;
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return -1;
-        }
-    }
-
-    public async Task UpdateOrderItemAsync(OrderItem orderItem)
-    {
-        string query = @"UPDATE order_item
-            SET quantity = @Quantity, price_per_unit = @PricePerUnit, 
-            service_name = @ServiceName, order_id = @OrderId
-            WHERE order_item_id = @Id";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@Id", orderItem.Id);
-            command.Parameters.AddWithValue("@Quantity", orderItem.Quantity);
-            command.Parameters.AddWithValue("@OrderId", orderItem.OrderId);
-
-            await connection.OpenAsync();
-            await command.ExecuteNonQueryAsync();
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-        }
-    }
-
-    public async Task DeleteOrderItemAsync(int id)
-    {
-        string query = "DELETE FROM order_item WHERE order_item_id = @Id";
-
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", id);
-
-            await connection.OpenAsync();
-            await command.ExecuteNonQueryAsync();
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-        }
-    }
-
-    #endregion
-
-    #region User
+    #region Users
 
     public async Task<List<User>> GetAllUsersAsync()
     {
-        var users = new List<User>();
-        string query = @"SELECT * FROM user";
+        const string sql = @"SELECT id, full_name, email, phone, created_at FROM lab.users ORDER BY id";
+        var result = new List<User>();
 
-        try
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
         {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-            {
-                var user = new User
-                {
-                    Id = reader.GetInt32(0),
-                    FirstName = reader.GetString(1),
-                    LastName = reader.GetString(2),
-                    Email = reader.GetString(3),
-                    PhoneNumber = reader.GetString(4),
-                    Password = reader.GetString(5),
-                    Role = Enum.Parse<Role>(reader.GetString(6), true),
-                    Address = reader.GetString(7),
-                };
-                users.Add(user);
-            }
-
-            return users;
+            result.Add(User.FromReader(reader));
         }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return null;
-        }
+
+        return result;
     }
 
-    public async Task<User> GetUserByIdAsync(int id)
+    public async Task<User?> GetUserAsync(int id)
     {
-        string query = @"SELECT * FROM user WHERE user_id = @Id";
+        const string sql = @"SELECT id, full_name, email, phone, created_at FROM lab.users WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
 
-        try
-        {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", id);
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            if (await reader.ReadAsync())
-            {
-                return new User
-                {
-                    Id = reader.GetInt32(0),
-                    FirstName = reader.GetString(1),
-                    LastName = reader.GetString(2),
-                    Email = reader.GetString(3),
-                    PhoneNumber = reader.GetString(4),
-                    Password = reader.GetString(5),
-                    Role = Enum.Parse<Role>(reader.GetString(6), true),
-                    Address = reader.GetString(7),
-                };
-            }
-            else
-            {
-                return null;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return null;
-        }
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? User.FromReader(reader) : null;
     }
 
     public async Task<int> AddUserAsync(User user)
     {
-        string query = @"INSERT INTO user 
-                (first_name, last_name, email, 
-                phone_number, password, role, address) 
-            VALUES (@FirstName, @LastName, @Email, 
-                @PhoneNumber, @Password, @Role, @Address);
-            SELECT LAST_INSERT_ID();";
+        const string sql = @"INSERT INTO lab.users (full_name, email, phone)
+                                         VALUES (@full_name, @email, @phone);
+                                         SELECT CAST(SCOPE_IDENTITY() AS INT);";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(user.ToInsertParameters());
 
-        try
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@FirstName", user.FirstName);
-                command.Parameters.AddWithValue("@LastName", user.LastName);
-                command.Parameters.AddWithValue("@Email", user.Email);
-                command.Parameters.AddWithValue("@PhoneNumber", user.PhoneNumber);
-                command.Parameters.AddWithValue("@Password", user.Password);
-
-                command.Parameters.AddWithValue("@Role", user.Role.ToString());
-                command.Parameters.AddWithValue("@Address", user.Address);
-
-                await connection.OpenAsync();
-                var id = Convert.ToInt32(await command.ExecuteScalarAsync());
-                return id;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-            return -1;
-        }
+        await connection.OpenAsync();
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
     }
 
     public async Task UpdateUserAsync(User user)
     {
-        string query = @"UPDATE user 
-            SET first_name = @FirstName, last_name = @LastName, 
-            email = @Email, phone_number = @PhoneNumber, 
-            password = @Password, role = @Role, address = @Address
-            WHERE user_id = @Id";
+        const string sql = @"UPDATE lab.users
+                                         SET full_name = @full_name, email = @email, phone = @phone
+                                         WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(user.ToUpdateParameters());
 
-        try
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@Id", user.Id);
-                command.Parameters.AddWithValue("@FirstName", user.FirstName);
-                command.Parameters.AddWithValue("@LastName", user.LastName);
-                command.Parameters.AddWithValue("@Email", user.Email);
-                command.Parameters.AddWithValue("@PhoneNumber", user.PhoneNumber);
-                command.Parameters.AddWithValue("@Password", user.Password);
-                command.Parameters.AddWithValue("@Role", user.Role.ToString());
-                command.Parameters.AddWithValue("@Address", user.Address);
-
-                await connection.OpenAsync();
-                await command.ExecuteNonQueryAsync();
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Error: {e.Message}");
-        }
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task DeleteUserAsync(int id)
     {
-        string query = "DELETE FROM user WHERE user_id = @Id";
+        const string sql = @"DELETE FROM lab.users WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
 
-        try
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    #endregion
+
+    #region Products
+
+    public async Task<List<Product>> GetAllProductsAsync()
+    {
+        const string sql = @"SELECT id, product_name, department, quantity, price, description
+                                         FROM lab.product ORDER BY id";
+        var result = new List<Product>();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
         {
-            using (var connection = new SqlConnection(_connectionString))
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@Id", id);
+            result.Add(Product.FromReader(reader));
+        }
 
-                await connection.OpenAsync();
-                await command.ExecuteNonQueryAsync();
+        return result;
+    }
+
+    public async Task<Product?> GetProductAsync(int id)
+    {
+        const string sql = @"SELECT id, product_name, department, quantity, price, description
+                                         FROM lab.product WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? Product.FromReader(reader) : null;
+    }
+
+    public async Task<int> AddProductAsync(Product product)
+    {
+        const string sql = @"INSERT INTO lab.product (product_name, department, quantity, price, description)
+                                         VALUES (@product_name, @department, @quantity, @price, @description);
+                                         SELECT CAST(SCOPE_IDENTITY() AS INT);";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(product.ToInsertParameters());
+
+        await connection.OpenAsync();
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    public async Task UpdateProductAsync(Product product)
+    {
+        const string sql = @"UPDATE lab.product
+                                         SET product_name = @product_name,
+                                             department = @department,
+                                             quantity = @quantity,
+                                             price = @price,
+                                             description = @description
+                                         WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(product.ToUpdateParameters());
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task DeleteProductAsync(int id)
+    {
+        const string sql = @"DELETE FROM lab.product WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    #endregion
+
+    #region Orders
+
+    public async Task<List<Order>> GetAllOrdersAsync(bool includeItems = false)
+    {
+        const string sql = @"SELECT id, user_id, placed_at, total FROM lab.orders ORDER BY placed_at DESC";
+        var orders = new List<Order>();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            orders.Add(Order.FromReader(reader));
+        }
+
+        if (includeItems)
+        {
+            foreach (var order in orders)
+            {
+                order.Items = await GetOrderItemsAsync(order.Id);
             }
         }
-        catch (Exception e)
+
+        return orders;
+    }
+
+    public async Task<Order?> GetOrderAsync(int id)
+    {
+        const string sql = @"SELECT id, user_id, placed_at, total FROM lab.orders WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? Order.FromReader(reader) : null;
+    }
+
+    public async Task<Order?> GetOrderWithItemsAsync(int id)
+    {
+        const string sql = @"
+                        SELECT id, user_id, placed_at, total FROM lab.orders WHERE id = @id;
+                        SELECT id, order_id, product_id, quantity, price
+                        FROM lab.order_items WHERE order_id = @id ORDER BY id;";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
         {
-            Debug.WriteLine($"Error: {e.Message}");
+            return null;
         }
+
+        var order = Order.FromReader(reader);
+
+        if (await reader.NextResultAsync())
+        {
+            var items = new List<OrderItem>();
+            while (await reader.ReadAsync())
+            {
+                items.Add(OrderItem.FromReader(reader));
+            }
+
+            order.Items = items;
+        }
+
+        return order;
+    }
+
+    public async Task<int> AddOrderAsync(Order order)
+    {
+        if (order.PlacedAt == default)
+        {
+            order.PlacedAt = DateTime.UtcNow;
+        }
+
+        const string sql = @"INSERT INTO lab.orders (user_id, placed_at, total)
+                                         VALUES (@user_id, @placed_at, @total);
+                                         SELECT CAST(SCOPE_IDENTITY() AS INT);";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(order.ToInsertParameters());
+
+        await connection.OpenAsync();
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    public async Task UpdateOrderAsync(Order order)
+    {
+        const string sql = @"UPDATE lab.orders
+                                         SET user_id = @user_id, placed_at = @placed_at, total = @total
+                                         WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(order.ToUpdateParameters());
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task DeleteOrderAsync(int id)
+    {
+        const string sql = @"DELETE FROM lab.orders WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    #endregion
+
+    #region OrderItems
+
+    public async Task<List<OrderItem>> GetOrderItemsAsync(int orderId)
+    {
+        const string sql = @"SELECT id, order_id, product_id, quantity, price
+                                         FROM lab.order_items WHERE order_id = @order_id ORDER BY id";
+        var items = new List<OrderItem>();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@order_id", orderId);
+
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            items.Add(OrderItem.FromReader(reader));
+        }
+
+        return items;
+    }
+
+    public async Task<OrderItem?> GetOrderItemAsync(int id)
+    {
+        const string sql = @"SELECT id, order_id, product_id, quantity, price
+                                         FROM lab.order_items WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? OrderItem.FromReader(reader) : null;
+    }
+
+    public async Task<int> AddOrderItemAsync(OrderItem orderItem)
+    {
+        const string sql = @"INSERT INTO lab.order_items (order_id, product_id, quantity, price)
+                                         VALUES (@order_id, @product_id, @quantity, @price);
+                                         SELECT CAST(SCOPE_IDENTITY() AS INT);";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(orderItem.ToInsertParameters());
+
+        await connection.OpenAsync();
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    public async Task UpdateOrderItemAsync(OrderItem orderItem)
+    {
+        const string sql = @"UPDATE lab.order_items
+                                         SET order_id = @order_id,
+                                             product_id = @product_id,
+                                             quantity = @quantity,
+                                             price = @price
+                                         WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddRange(orderItem.ToUpdateParameters());
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task DeleteOrderItemAsync(int id)
+    {
+        const string sql = @"DELETE FROM lab.order_items WHERE id = @id";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
+    #endregion
+
+    #region Routines & Functions
+
+    public async Task MarkProductsByPriceGroupAsync(string department)
+    {
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand("lab.MarkProductsByPriceGroup", connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        command.Parameters.AddWithValue("@department", department);
+
+        await connection.OpenAsync();
+        try
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (SqlException ex) when (ex.Number == 50000)
+        {
+            throw new InvalidOperationException($"Server rejected the request: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<int> CountProductsByDepartmentAsync(string? deptPattern = null)
+    {
+        const string sql = @"SELECT lab.fn_CountProductsByDepartment(@pattern)";
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@pattern", (object?)deptPattern ?? DBNull.Value);
+
+        await connection.OpenAsync();
+        var result = await command.ExecuteScalarAsync();
+        return result is DBNull ? 0 : Convert.ToInt32(result);
+    }
+
+    public async Task<List<Product>> GetLowStockProductsAsync(int maxQuantity)
+    {
+        const string sql = @"SELECT id, product_name, department, quantity, price, description
+                                         FROM lab.fn_LowStockProducts(@maxQuantity)
+                                         ORDER BY quantity, id";
+        var products = new List<Product>();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@maxQuantity", maxQuantity);
+
+        await connection.OpenAsync();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            products.Add(Product.FromReader(reader));
+        }
+
+        return products;
     }
 
     #endregion

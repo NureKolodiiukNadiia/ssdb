@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Ssdb.Dtos;
-using Ssdb.Entities;
+using Ssdb.Model;
 
 namespace Ssdb.Controllers;
 
@@ -8,99 +7,70 @@ namespace Ssdb.Controllers;
 [Route("api/[controller]")]
 public class UserController : ControllerBase
 {
-    private DataProvider _dataProvider;
+    private readonly DataProvider _dataProvider;
 
     public UserController(DataProvider dataProvider) => _dataProvider = dataProvider;
 
     [HttpGet]
-    public async Task<ActionResult<List<User>>> GetUsers() 
+    public async Task<ActionResult<List<User>>> GetUsers()
         => Ok(await _dataProvider.GetAllUsersAsync());
 
-    [HttpGet("{id}", Name = "GetUser")]
+    [HttpGet("{id:int}", Name = nameof(GetUser))]
     public async Task<ActionResult<User>> GetUser(int id)
     {
-        var user = await _dataProvider.GetUserByIdAsync(id);
+        var user = await _dataProvider.GetUserAsync(id);
         
+        return user == null ? NotFound() : Ok(user);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<User>> CreateUser([FromBody] User user)
+    {
         if (user == null)
         {
-            return NotFound();
+            return BadRequest();
         }
 
-        return Ok(user);
-    }
-
-[HttpPost]
-public async Task<ActionResult<User>> CreateUser([FromForm] CreateUserDto userDto)
-{
-    if (userDto == null)
-    {
-        return BadRequest(new ProblemDetails { Title = "Invalid user data" });
-    }
-    var user = new User()
-    {
-        FirstName = userDto.FirstName,
-        LastName = userDto.LastName,
-        Email = userDto.Email,
-        PhoneNumber = userDto.PhoneNumber,
-        Password = userDto.Password,
-        Role = userDto.Role,
-        Address = userDto.Address,
-    };
-
-    try
-    {
-        int id = await _dataProvider.AddUserAsync(user);
+        var id = await _dataProvider.AddUserAsync(user);
         user.Id = id;
         
-        return CreatedAtRoute("GetUser", new { Id = id }, user);
+        return CreatedAtRoute(nameof(GetUser), new { id }, user);
     }
-    catch (Exception e)
-    {
-        return BadRequest(new ProblemDetails { Title = "Problem creating new user" });
-    }
-}
 
-    [HttpPut]
-    public async Task<ActionResult<User>> UpdateUser([FromForm] User userDto)
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<User>> UpdateUser(int id, [FromBody] User user)
     {
-        if (userDto == null)
+        if (user == null || id != user.Id)
         {
-            return BadRequest(new ProblemDetails { Title = "Invalid user data" });
+            return BadRequest();
         }
-        var user = await _dataProvider.GetUserByIdAsync(userDto.Id);
 
-        if (user == null)
+        var existing = await _dataProvider.GetUserAsync(id);
+        if (existing == null)
         {
             return NotFound();
         }
 
-        user.FirstName = userDto.FirstName;
-        user.LastName = userDto.LastName;
-        user.Email = userDto.Email;
-        user.PhoneNumber = userDto.PhoneNumber;
-        user.Password = userDto.Password;
-        user.Role = userDto.Role;
-        user.Address = userDto.Address;
+        existing.FullName = user.FullName;
+        existing.Email = user.Email;
+        existing.Phone = user.Phone;
 
-        try
-        {
-            await _dataProvider.UpdateUserAsync(user);
-        }
-        catch (Exception e)
-        {
-            return BadRequest(new ProblemDetails { Title = "Problem updating user" });
-        }
-
-        return Ok(user);
+        await _dataProvider.UpdateUserAsync(existing);
+        
+        return Ok(existing);
     }
 
-    [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteUser(int id)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteUser(int id)
     {
+        var existing = await _dataProvider.GetUserAsync(id);
+        if (existing == null)
+        {
+            return NotFound();
+        }
+
         await _dataProvider.DeleteUserAsync(id);
         
-        return Ok();
+        return NoContent();
     }
-
-
 }
