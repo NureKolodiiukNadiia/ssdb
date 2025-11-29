@@ -17,26 +17,35 @@ BEGIN
         current_sales INT
     );
 
+    ;WITH ins AS (
+        SELECT product_id, COUNT(*) AS ins_count
+        FROM inserted
+        GROUP BY product_id
+    ), existing AS (
+        SELECT product_id, COUNT(*) AS exist_count
+        FROM lab.order_items
+        GROUP BY product_id
+    )
     INSERT INTO @violations (product_id, product_name, current_sales)
     SELECT
-        di.product_id,
+        d.product_id,
         p.product_name,
-        COUNT(oi.id) AS current_sales
-    FROM (SELECT DISTINCT product_id FROM inserted) AS di
-    LEFT JOIN lab.product p ON di.product_id = p.id
-    LEFT JOIN lab.order_items oi ON di.product_id = oi.product_id
-    GROUP BY di.product_id, p.product_name
-    HAVING COUNT(oi.id) >= @max_sales;
+        ISNULL(e.exist_count, 0) + ISNULL(i.ins_count, 0) AS current_sales
+    FROM (SELECT DISTINCT product_id FROM inserted) AS d
+    LEFT JOIN lab.product p ON d.product_id = p.id
+    LEFT JOIN existing e ON d.product_id = e.product_id
+    LEFT JOIN ins i ON d.product_id = i.product_id
+    WHERE ISNULL(e.exist_count, 0) + ISNULL(i.ins_count, 0) > @max_sales;
 
     IF EXISTS (SELECT 1 FROM @violations)
     BEGIN
-        DECLARE @err NVARCHAR(MAX) = N'Cannot add purchases. The following products reached the sales limit ('
+        DECLARE @err NVARCHAR(MAX) = N'Cannot add purchases. The following products would exceed the sales limit ('
             + CAST(@max_sales AS NVARCHAR(10)) + N'):' + CHAR(13) + CHAR(10);
 
         SELECT @err = @err
             + N'- ' + ISNULL(product_name, N'(unknown)')
             + N' (ID: ' + CAST(product_id AS NVARCHAR(10)) + N')'
-            + N' - current sales (rows): ' + CAST(current_sales AS NVARCHAR(10))
+            + N' - resulting sales (rows): ' + CAST(current_sales AS NVARCHAR(10))
             + CHAR(13) + CHAR(10)
         FROM @violations;
 

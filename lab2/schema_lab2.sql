@@ -1,7 +1,12 @@
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'lab')
+IF OBJECT_ID('lab.order_items','U') IS NOT NULL DROP TABLE lab.order_items;
+IF OBJECT_ID('lab.orders','U') IS NOT NULL DROP TABLE lab.orders;
+IF OBJECT_ID('lab.product','U') IS NOT NULL DROP TABLE lab.product;
+IF OBJECT_ID('lab.users','U') IS NOT NULL DROP TABLE lab.users;
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'lab')
 BEGIN
-    EXEC('CREATE SCHEMA [lab]')
-END
+    EXEC('CREATE SCHEMA lab');
+END;
 GO
 
 CREATE TABLE lab.users (
@@ -9,7 +14,7 @@ CREATE TABLE lab.users (
     full_name NVARCHAR(100) NOT NULL,
     email NVARCHAR(100) UNIQUE,
     phone NVARCHAR(20),
-    created_at DATE DEFAULT GETDATE()
+    created_at DATETIME DEFAULT GETDATE()
 );
 GO
 
