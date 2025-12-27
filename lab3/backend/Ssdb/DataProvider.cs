@@ -1,5 +1,5 @@
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Ssdb.Model;
 
 namespace Ssdb;
@@ -10,8 +10,16 @@ public class DataProvider
 
     public DataProvider(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-                            ?? throw new InvalidOperationException("Missing connection string 'DefaultConnection'.");
+        var cs =
+            "Server=127.0.0.1,14337;" +
+            "Database=master;" +
+            "User Id=sa;" +
+            "Password=YourStrong!Passw0rd;" +
+            "Encrypt=True;" +
+            "TrustServerCertificate=True;";
+        _connectionString = cs;
+        // _connectionString = configuration.GetConnectionString("DefaultConnection")
+        //                     ?? throw new InvalidOperationException("Missing connection string 'DefaultConnection'.");
     }
 
     #region Users

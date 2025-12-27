@@ -1,5 +1,21 @@
 using Ssdb;
 
+using Microsoft.Data.SqlClient;
+
+var cs =
+    "Server=127.0.0.1,14337;" +
+    "Database=master;" +
+    "User Id=sa;" +
+    "Password=YourStrong!Passw0rd;" +
+    "Encrypt=True;" +
+    "TrustServerCertificate=True;";
+
+using var conn = new SqlConnection(cs);
+await conn.OpenAsync();
+
+Console.WriteLine("CONNECTED");
+
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();

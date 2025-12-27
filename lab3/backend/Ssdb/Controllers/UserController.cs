@@ -22,55 +22,55 @@ public class UserController : ControllerBase
         
         return user == null ? NotFound() : Ok(user);
     }
-
-    [HttpPost]
-    public async Task<ActionResult<User>> CreateUser([FromBody] User user)
-    {
-        if (user == null)
-        {
-            return BadRequest();
-        }
-
-        var id = await _dataProvider.AddUserAsync(user);
-        user.Id = id;
-        
-        return CreatedAtRoute(nameof(GetUser), new { id }, user);
-    }
-
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<User>> UpdateUser(int id, [FromBody] User user)
-    {
-        if (user == null || id != user.Id)
-        {
-            return BadRequest();
-        }
-
-        var existing = await _dataProvider.GetUserAsync(id);
-        if (existing == null)
-        {
-            return NotFound();
-        }
-
-        existing.FullName = user.FullName;
-        existing.Email = user.Email;
-        existing.Phone = user.Phone;
-
-        await _dataProvider.UpdateUserAsync(existing);
-        
-        return Ok(existing);
-    }
-
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteUser(int id)
-    {
-        var existing = await _dataProvider.GetUserAsync(id);
-        if (existing == null)
-        {
-            return NotFound();
-        }
-
-        await _dataProvider.DeleteUserAsync(id);
-        
-        return NoContent();
-    }
+    //
+    // [HttpPost]
+    // public async Task<ActionResult<User>> CreateUser([FromBody] User user)
+    // {
+    //     if (user == null)
+    //     {
+    //         return BadRequest();
+    //     }
+    //
+    //     var id = await _dataProvider.AddUserAsync(user);
+    //     user.Id = id;
+    //
+    //     return CreatedAtRoute(nameof(GetUser), new { id }, user);
+    // }
+    //
+    // [HttpPut("{id:int}")]
+    // public async Task<ActionResult<User>> UpdateUser(int id, [FromBody] User user)
+    // {
+    //     if (user == null || id != user.Id)
+    //     {
+    //         return BadRequest();
+    //     }
+    //
+    //     var existing = await _dataProvider.GetUserAsync(id);
+    //     if (existing == null)
+    //     {
+    //         return NotFound();
+    //     }
+    //
+    //     existing.FullName = user.FullName;
+    //     existing.Email = user.Email;
+    //     existing.Phone = user.Phone;
+    //
+    //     await _dataProvider.UpdateUserAsync(existing);
+    //
+    //     return Ok(existing);
+    // }
+    //
+    // [HttpDelete("{id:int}")]
+    // public async Task<IActionResult> DeleteUser(int id)
+    // {
+    //     var existing = await _dataProvider.GetUserAsync(id);
+    //     if (existing == null)
+    //     {
+    //         return NotFound();
+    //     }
+    //
+    //     await _dataProvider.DeleteUserAsync(id);
+    //
+    //     return NoContent();
+    // }
 }
